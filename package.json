@@ -1,0 +1,26 @@
+{
+  "name": "com.Noa3.hordeimagegenerator",
+  "version": "0.0.2",
+  "displayName": "Horde Image Generator",
+  "description": "A plugin to generate and fetch images using the Horde AI API for Unity projects.",
+  "unity": "2021.3",
+  "author": {
+    "name": "Noa3",
+    "email": "noa3@gmx.net",
+    "url": "https://github.com/Noa3/Unity-AI-Horde"
+  },
+  "dependencies": {},
+  "keywords": [
+    "Horde AI",
+    "Image Generation",
+    "Unity",
+    "API"
+  ],
+  "samples": [
+    {
+      "displayName": "Example Usage",
+      "description": "A sample scene to demonstrate Horde Image Generator.",
+      "path": "UnityAIHorde/SceneSample/HordeImageExample"
+    }
+  ]
+}
