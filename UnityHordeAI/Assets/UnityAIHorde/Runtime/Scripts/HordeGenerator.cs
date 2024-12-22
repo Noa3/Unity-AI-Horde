@@ -1,8 +1,13 @@
+using System.Collections;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using Unity.VisualScripting.Antlr3.Runtime.Misc;
+using UnityEditor.PackageManager;
 using UnityEngine;
 using UnityEngine.Networking;
+using System.Linq;
 
 namespace HordeImageGenerator
 {
@@ -39,7 +44,7 @@ namespace HordeImageGenerator
         public bool disable_batching = false;
         public bool allow_downgrade = false;
         public string webhook = "";
-        public string style = "";
+        //public string style = "";
     }
 
     [System.Serializable]
@@ -104,6 +109,13 @@ namespace HordeImageGenerator
         public float strength;
     }
 
+    [System.Serializable]
+    public class TextGenerationResponse
+    {
+        public string id;
+        public float kudos;
+    }
+
     public static class ImageGenerator
     {
         public static Texture2D lastGeneratedImage;
@@ -114,7 +126,64 @@ namespace HordeImageGenerator
         public static async Task<string> GenerateImageAsync(ImageGenerationParameters parameters, bool saveImage = false)
         {
             string url = $"{HordeBase.baseApiUrl}generate/async";
-            string jsonPayload = JsonUtility.ToJson(parameters);
+
+            // Manuelles Erstellen der JSON-Nutzlast
+            //string jsonPayload = $@"
+            //{{
+            //    ""prompt"": ""{parameters.prompt}"",
+            //    ""params"": {{
+            //        ""sampler_name"": ""{parameters.@params.sampler_name}"",
+            //        ""cfg_scale"": {parameters.@params.cfg_scale},
+            //        ""denoising_strength"": {parameters.@params.denoising_strength},
+            //        ""hires_fix_denoising_strength"": {parameters.@params.hires_fix_denoising_strength},
+            //        ""height"": {parameters.@params.height},
+            //        ""width"": {parameters.@params.width},
+            //        ""post_processing"": [{string.Join(",", parameters.@params.post_processing.Select(p => $"\"{p}\""))}],
+            //        ""karras"": {parameters.@params.karras.ToString().ToLower()},
+            //        ""tiling"": {parameters.@params.tiling.ToString().ToLower()},
+            //        ""hires_fix"": {parameters.@params.hires_fix.ToString().ToLower()},
+            //        ""clip_skip"": {parameters.@params.clip_skip},
+            //        ""facefixer_strength"": {parameters.@params.facefixer_strength},
+            //        ""loras"": [{string.Join(",", parameters.@params.loras.Select(l => $"{{\"name\":\"{l.name}\",\"model\":{l.model},\"clip\":{l.clip},\"inject_trigger\":\"{l.inject_trigger}\",\"is_version\":{l.is_version.ToString().ToLower()}}}"))}],
+            //        ""tis"": [{string.Join(",", parameters.@params.tis.Select(t => $"{{\"name\":\"{t.name}\",\"inject_ti\":\"{t.inject_ti}\",\"strength\":{t.strength}}}"))}],
+            //        ""special"": {{{string.Join(",", parameters.@params.special.Select(kv => $"\"{kv.Key}\":\"{kv.Value}\""))}}},
+            //        ""workflow"": ""{parameters.@params.workflow}"",
+            //        ""transparent"": {parameters.@params.transparent.ToString().ToLower()},
+            //        ""seed"": ""{parameters.@params.seed}"",
+            //        ""seed_variation"": {parameters.@params.seed_variation},
+            //        ""control_type"": ""{parameters.@params.control_type}"",
+            //        ""image_is_control"": {parameters.@params.image_is_control.ToString().ToLower()},
+            //        ""return_control_map"": {parameters.@params.return_control_map.ToString().ToLower()},
+            //        ""extra_texts"": [{string.Join(",", parameters.@params.extra_texts.Select(et => $"{{\"text\":\"{et.text}\",\"reference\":\"{et.reference}\"}}"))}],
+            //        ""steps"": {parameters.@params.steps},
+            //        ""n"": {parameters.@params.n}
+            //    }},
+            //    ""nsfw"": {parameters.nsfw.ToString().ToLower()},
+            //    ""trusted_workers"": {parameters.trusted_workers.ToString().ToLower()},
+            //    ""validated_backends"": {parameters.validated_backends.ToString().ToLower()},
+            //    ""slow_workers"": {parameters.slow_workers.ToString().ToLower()},
+            //    ""extra_slow_workers"": {parameters.extra_slow_workers.ToString().ToLower()},
+            //    ""censor_nsfw"": {parameters.censor_nsfw.ToString().ToLower()},
+            //    ""workers"": [{string.Join(",", parameters.workers.Select(w => $"\"{w}\""))}],
+            //    ""worker_blacklist"": {parameters.worker_blacklist.ToString().ToLower()},
+            //    ""models"": [{string.Join(",", parameters.models.Select(m => $"\"{m}\""))}],
+            //    ""source_image"": ""{parameters.source_image}"",
+            //    ""source_processing"": ""{parameters.source_processing}"",
+            //    ""source_mask"": ""{parameters.source_mask}"",
+            //    ""extra_source_images"": [{string.Join(",", parameters.extra_source_images.Select(esi => $"{{\"image\":\"{esi.image}\",\"strength\":{esi.strength}}}"))}],
+            //    ""r2"": {parameters.r2.ToString().ToLower()},
+            //    ""shared"": {parameters.shared.ToString().ToLower()},
+            //    ""replacement_filter"": {parameters.replacement_filter.ToString().ToLower()},
+            //    ""dry_run"": {parameters.dry_run.ToString().ToLower()},
+            //    ""proxied_account"": ""{parameters.proxied_account}"",
+            //    ""disable_batching"": {parameters.disable_batching.ToString().ToLower()},
+            //    ""allow_downgrade"": {parameters.allow_downgrade.ToString().ToLower()},
+            //    ""webhook"": ""{parameters.webhook}""
+            //}}";
+            string jsonPayload = $@"
+            {{
+                ""prompt"": ""{parameters.prompt}""
+            }}";
 
             using (UnityWebRequest webRequest = new UnityWebRequest(url, "POST"))
             {
@@ -129,6 +198,7 @@ namespace HordeImageGenerator
                 if (webRequest.result == UnityWebRequest.Result.ConnectionError || webRequest.result == UnityWebRequest.Result.ProtocolError)
                 {
                     Debug.LogError(webRequest.error);
+                    Debug.LogError($"Response: {webRequest.downloadHandler.text}");
                     return null;
                 }
                 else if (webRequest.result == UnityWebRequest.Result.Success)
@@ -147,38 +217,85 @@ namespace HordeImageGenerator
             }
         }
 
-        public static async Task<string> GenerateSimpleImageAsync(string prompt, bool saveImage = false)
+        public static async Task<string> GenerateSimpleImageAsync(string prompt = "a magical forest", int width = 256, int height = 256, bool saveImage = false)
         {
-            string url = $"{HordeBase.baseApiUrl}generate/async";
-            WWWForm form = new WWWForm();
-            form.AddField("prompt", prompt);
-            //form.AddField("height", 256);
-            //form.AddField("width", 256);
-
-            using (UnityWebRequest webRequest = UnityWebRequest.Post(url, form))
+            if (string.IsNullOrEmpty(prompt))
             {
-                webRequest.SetRequestHeader("apikey", HordeBase.apiKey);
+                Debug.LogError("Prompt is required.");
+                return null;
+            }
+
+            string url = $"{HordeBase.baseApiUrl}generate/async";
+
+            // Construct the payload
+            var payload = new
+            {
+                prompt = prompt,
+                @params = new
+                {
+                    width = width,
+                    height = height,
+                    cfg_scale = 7, // Adjust for creativity/precision balance
+                    sampler_name = "k_euler_a", // Sampling method
+                    steps = 50 // Number of steps for generation
+                },
+                post_processing = new[] { "RealESRGAN_x4plus" } // Optional post-processing
+            };
+
+            // Serialize payload to JSON
+            string jsonPayload = JsonUtility.ToJson(payload);
+
+            using (UnityWebRequest webRequest = new UnityWebRequest(url, "POST"))
+            {
+                byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(jsonPayload);
+                webRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                webRequest.downloadHandler = new DownloadHandlerBuffer();
+                webRequest.SetRequestHeader("Content-Type", "application/json");
+                webRequest.SetRequestHeader("apikey", "<Your API Key Here>"); // Replace with your actual API key
+
+                Debug.Log($"Sending request to {url} with payload: {jsonPayload}");
+
                 await webRequest.SendWebRequest();
 
                 if (webRequest.result == UnityWebRequest.Result.ConnectionError || webRequest.result == UnityWebRequest.Result.ProtocolError)
                 {
-                    Debug.LogError(webRequest.error);
+                    Debug.LogError($"Request error: {webRequest.error}");
+                    Debug.LogError($"Response details: {webRequest.downloadHandler.text}");
                     return null;
                 }
-                else if (webRequest.result == UnityWebRequest.Result.Success)
+
+                if (webRequest.result == UnityWebRequest.Result.Success)
                 {
+                    Debug.Log("Request successful!");
                     string jsonResponse = webRequest.downloadHandler.text;
-                    // Assuming the response contains a URL to the generated image
+                    Debug.Log($"Response: {jsonResponse}");
+
+                    // Process the JSON response to extract the image URL
                     string imageUrl = ExtractImageUrlFromResponse(jsonResponse);
-                    await LoadImageToRenderer(imageUrl, saveImage);
+                    if (!string.IsNullOrEmpty(imageUrl))
+                    {
+                        Debug.Log($"Image URL: {imageUrl}");
+                        await LoadImageToRenderer(imageUrl, saveImage); // Display or save the image
+                    }
+
                     return jsonResponse;
                 }
                 else
                 {
-                    Debug.LogError($"Unexpected response: {webRequest.downloadHandler.text}");
+                    Debug.LogError($"Unexpected result: {webRequest.result}");
+                    Debug.LogError($"Response: {webRequest.downloadHandler.text}");
                     return null;
                 }
             }
+        }
+
+
+        // Save image to disk
+        private static void SaveImageToDisk(byte[] imageData)
+        {
+            string path = Path.Combine(Application.persistentDataPath, "generated_image.png");
+            File.WriteAllBytes(path, imageData);
+            Debug.Log($"Image saved to: {path}");
         }
 
         // Overloaded method to generate image with basic parameters
@@ -296,33 +413,52 @@ namespace HordeImageGenerator
     public static class TextGenerator
     {
         public static string lastGeneratedText;
-        public static List<string> currentTextRequests = new List<string>();
+        public static List<TextGenerationResponse> textGenerationResponses = new List<TextGenerationResponse>();
         public static string currentTextStyles;
 
-        // Method to generate text asynchronously
+        // Methode zum asynchronen Generieren von Text
         public static async Task<string> GenerateTextAsync(string prompt)
         {
             string url = $"{HordeBase.baseApiUrl}generate/text/async";
-            WWWForm form = new WWWForm();
-            form.AddField("prompt", prompt);
 
-            using (UnityWebRequest webRequest = UnityWebRequest.Post(url, form))
+            // Manuelles Erstellen der JSON-Nutzlast
+            string jsonPayload = $@"
+            {{
+                ""prompt"": ""{prompt}""
+            }}";
+
+            using (UnityWebRequest webRequest = new UnityWebRequest(url, "POST"))
             {
+                byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(jsonPayload);
+                webRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                webRequest.downloadHandler = new DownloadHandlerBuffer();
+                webRequest.SetRequestHeader("Content-Type", "application/json");
                 webRequest.SetRequestHeader("apikey", HordeBase.apiKey);
+                webRequest.SetRequestHeader("Client-Agent", "unknown:0:unknown");
+
                 await webRequest.SendWebRequest();
 
                 if (webRequest.result == UnityWebRequest.Result.ConnectionError || webRequest.result == UnityWebRequest.Result.ProtocolError)
                 {
-                    Debug.LogError(webRequest.error);
+                    Debug.LogError($"Error: {webRequest.error}");
+                    Debug.LogError($"Response: {webRequest.downloadHandler.text}");
                     return null;
                 }
                 else
                 {
                     lastGeneratedText = webRequest.downloadHandler.text;
+                    Debug.Log($"Response: {lastGeneratedText}");
+
+                    // Deserialisieren der Antwort und Speichern in der Liste
+                    TextGenerationResponse response = JsonUtility.FromJson<TextGenerationResponse>(lastGeneratedText);
+                    textGenerationResponses.Add(response);
+
                     return lastGeneratedText;
                 }
             }
         }
+
+
 
         // Method to cancel an unfinished text request
         public static async Task<string> CancelTextGeneration(string id)
@@ -340,7 +476,11 @@ namespace HordeImageGenerator
                 }
                 else
                 {
-                    currentTextRequests.Remove(id);
+                    var response = textGenerationResponses.FirstOrDefault(r => r.id == id);
+                    if (response != null)
+                    {
+                        textGenerationResponses.Remove(response);
+                    }
                     return webRequest.downloadHandler.text;
                 }
             }
@@ -371,9 +511,9 @@ namespace HordeImageGenerator
         // Method to cancel all text requests
         public static async Task CancelAllTextRequests()
         {
-            foreach (var requestId in currentTextRequests)
+            foreach (var requestId in textGenerationResponses)
             {
-                await CancelTextGeneration(requestId);
+                await CancelTextGeneration(requestId.id);
             }
         }
     }

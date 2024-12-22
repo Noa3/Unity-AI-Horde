@@ -38,7 +38,7 @@ public class ExampleScript : MonoBehaviour
 
     public async void GenerateImage()
     {
-        string imageResponse = await HordeImageGenerator.ImageGenerator.GenerateSimpleImageAsync("A magical skyline", true);
+        string imageResponse = await HordeImageGenerator.ImageGenerator.GenerateSimpleImageAsync("A magical skyline", 256, 256, true);
         if (imageResponse != null)
         {
             targetRenderer.material.mainTexture = HordeImageGenerator.ImageGenerator.lastGeneratedImage;
@@ -47,6 +47,19 @@ public class ExampleScript : MonoBehaviour
         else
         {
             statusText.text = "Failed to generate image.";
+        }
+    }
+
+    public async void GenerateText()
+    {
+        string textResponse = await HordeImageGenerator.TextGenerator.GenerateTextAsync("Once upon a time in a magical land...");
+        if (textResponse != null)
+        {
+            statusText.text = $"Generated Text: {textResponse}";
+        }
+        else
+        {
+            statusText.text = "Failed to generate text.";
         }
     }
 
